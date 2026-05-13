@@ -397,6 +397,14 @@ struct llm_tokenizer_bpe : llm_tokenizer {
                     "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
                 };
                 break;
+            case LLAMA_VOCAB_PRE_TYPE_NANOCHAT:
+                // nanochat tiktoken pat_str (GPT-4 family with digits capped at 1-2):
+                // '(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+
+                // Possessive quantifiers (?+,++) replaced with greedy equivalents for std::regex compat.
+                regex_exprs = {
+                    "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,2}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]|\\s+(?!\\S)|\\s+",
+                };
+                break;
             case LLAMA_VOCAB_PRE_TYPE_VIKING:
                 regex_exprs = {
                     " ?[^(\\s|.,!?…。，、।۔،)]+",
@@ -2172,6 +2180,10 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
             } else if (
                 tokenizer_pre == "solar-open") {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_SOLAR_OPEN;
+                clean_spaces = false;
+            } else if (
+                tokenizer_pre == "nanochat") {
+                pre_type = LLAMA_VOCAB_PRE_TYPE_NANOCHAT;
                 clean_spaces = false;
             } else {
                 throw std::runtime_error(format("unknown pre-tokenizer type: '%s'", tokenizer_pre.c_str()));

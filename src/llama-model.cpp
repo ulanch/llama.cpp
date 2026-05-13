@@ -234,6 +234,8 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
             return new llama_model_dots1(params);
         case LLM_ARCH_ARCEE:
             return new llama_model_arcee(params);
+        case LLM_ARCH_NANOCHAT:
+            return new llama_model_nanochat(params);
         case LLM_ARCH_AFMOE:
             return new llama_model_afmoe(params);
         case LLM_ARCH_ERNIE4_5:
@@ -2261,6 +2263,7 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
         case LLM_ARCH_QWEN2:
         case LLM_ARCH_DREAM:
         case LLM_ARCH_QWEN2MOE:
+        case LLM_ARCH_NANOCHAT:
         case LLM_ARCH_QWEN3:
         case LLM_ARCH_QWEN3MOE:
         case LLM_ARCH_LLADA_MOE:
