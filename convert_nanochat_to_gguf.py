@@ -1,33 +1,22 @@
 """
-Convert a nanochat checkpoint (e.g. d34) to GGUF for llama.cpp / LM Studio.
+Convert a nanochat checkpoint to GGUF for llama.cpp.
 
 Usage:
-    python convert_nanochat_to_gguf.py --src ./d34 --out nanochat-d34-f16.gguf --outtype f16
+    python convert_nanochat_to_gguf.py --src ./checkpoint_dir --out model.gguf
 
 Expects --src to contain:
     model_*.pt        (PyTorch state_dict)
     meta_*.json       (config blob with "model_config" subdict)
     tokenizer.pkl     (pickled tiktoken Encoding)
 
-Produces a GGUF file with arch="nanochat". The companion changes to llama.cpp
-(arch enum, tensor map, build_nanochat graph) must be applied for the file to
-load and run.
+Depth, width, and vocab are read from meta_*.json, so the converter works
+on any depth as long as the underlying architecture is the standard
+nanochat transformer (parameterless RMS norm, QK-norm, ReLU² FFN no gate,
+NEOX RoPE, untied lm_head, logit softcap=15).
 
-Architecture mapping (d34 era, commit 2c4473d):
-    transformer.wte.weight              -> token_embd.weight
-    lm_head.weight                       -> output.weight
-    transformer.h.{i}.attn.c_q.weight   -> blk.{i}.attn_q.weight
-    transformer.h.{i}.attn.c_k.weight   -> blk.{i}.attn_k.weight
-    transformer.h.{i}.attn.c_v.weight   -> blk.{i}.attn_v.weight
-    transformer.h.{i}.attn.c_proj.weight-> blk.{i}.attn_output.weight
-    transformer.h.{i}.mlp.c_fc.weight   -> blk.{i}.ffn_up.weight
-    transformer.h.{i}.mlp.c_proj.weight -> blk.{i}.ffn_down.weight
-    (synthesised, all-ones)              -> token_embd_norm.weight
-    (synthesised, all-ones)              -> output_norm.weight
-    (synthesised, all-ones)              -> blk.{i}.attn_norm.weight
-    (synthesised, all-ones)              -> blk.{i}.ffn_norm.weight
-    (synthesised, all-ones)              -> blk.{i}.attn_q_norm.weight    (parameterless QK-norm)
-    (synthesised, all-ones)              -> blk.{i}.attn_k_norm.weight
+Produces a GGUF with arch="nanochat". The matching llama.cpp side
+(arch enum, vocab pre-type, models/nanochat.cpp) must be in place for the
+file to load — see NANOCHAT.md.
 """
 
 import argparse
@@ -107,8 +96,9 @@ def main():
     ap.add_argument("--out", required=True, help="Output .gguf path")
     ap.add_argument("--outtype", default="bf16", choices=["f32", "bf16", "f16"],
                     help="Output tensor dtype. Default bf16 (recommended). "
-                         "f16 is accepted but produces NaN at layer 33 because nanochat's "
-                         "ReLU² FFN can produce activations > 65504 (fp16 max). Use bf16 instead.")
+                         "f16 risks overflow in deep checkpoints because the ReLU² FFN "
+                         "can produce activations above the fp16 max. bf16 is the safe "
+                         "half-precision choice for this architecture.")
     ap.add_argument("--name", default=None, help="general.name (default derived from src dir)")
     args = ap.parse_args()
 
@@ -116,9 +106,9 @@ def main():
     assert src.is_dir(), f"--src must be a directory: {src}"
 
     if args.outtype == "f16":
-        print("WARNING: --outtype f16 is known to produce NaN at the last block on llama.cpp CPU. "
-              "The ReLU² FFN can produce activations > 65504, which overflows fp16. "
-              "Use --outtype bf16 (same size, no overflow) instead.")
+        print("WARNING: --outtype f16 risks NaN logits on deeper checkpoints because "
+              "the ReLU² FFN can produce activations above the fp16 max. "
+              "Prefer --outtype bf16.")
 
     # ---- meta ----
     meta_files = sorted(src.glob("meta_*.json"))
