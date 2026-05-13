@@ -39,10 +39,11 @@ is required even for llama-cli — it's gated on the server build upstream.
 
 ## Converting your own nanochat checkpoint
 
-A standalone converter (`convert_nanochat_to_gguf.py`) lives in the project workspace
-alongside this fork. It reads `model_*.pt` + `meta_*.json` + `tokenizer.pkl` from a
-nanochat checkpoint dir and writes a GGUF with `arch="nanochat"`. Default output is
-bf16 — see the HF page for why fp16 is deprecated for this architecture.
+The converter lives at the root of this repo as `convert_nanochat_to_gguf.py`
+(it's a standalone Python script, no install needed beyond `torch`, `gguf`, and
+`tiktoken`). It reads `model_*.pt` + `meta_*.json` + `tokenizer.pkl` from a
+nanochat checkpoint directory and writes a GGUF with `arch="nanochat"`. Default
+output is bf16 — see the HF page for why fp16 is deprecated for this architecture.
 
 ```bash
 python convert_nanochat_to_gguf.py --src /path/to/checkpoint --out model.gguf
